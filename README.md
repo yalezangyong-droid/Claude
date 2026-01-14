@@ -31,6 +31,7 @@ Manually track posts by entering data yourself:
 - 📝 **Content Type Analysis**: Compare performance across different post types
 - 💾 **Local Data Storage**: All data stored securely in JSON format
 - 🤖 **Automated Tracking**: Set it and forget it with LinkedIn API integration
+- 📤 **CSV Export**: Export reports to CSV for analysis in Excel or Google Sheets
 
 ## Installation
 
@@ -95,7 +96,26 @@ python linkedin_tracker.py analyze --by-type
 python linkedin_tracker.py top --limit 5
 ```
 
-4. **List all tracked posts**
+4. **Export reports to CSV**
+
+```bash
+# Export all posts
+python linkedin_tracker.py export --output reports/all_posts.csv --type posts
+
+# Export top 10 posts
+python linkedin_tracker.py export --output reports/top_10.csv --type top --limit 10
+
+# Export summary statistics
+python linkedin_tracker.py export --output reports/summary.csv --type summary
+
+# Export best times analysis
+python linkedin_tracker.py export --output reports/best_times.csv --type times
+
+# Export content type analysis
+python linkedin_tracker.py export --output reports/content_types.csv --type types
+```
+
+5. **List all tracked posts**
    ```bash
    python linkedin_tracker.py list
    ```
@@ -229,6 +249,20 @@ Best Days:
   Wednesday - Avg engagement: 245
 ```
 
+### Export to CSV for further analysis
+```bash
+# Export all posts with metrics
+python linkedin_tracker.py export --output my_posts.csv --type posts
+
+# Export top 5 performers
+python linkedin_tracker.py export --output top_performers.csv --type top --limit 5
+
+# Export summary stats
+python linkedin_tracker.py export --output stats.csv --type summary
+```
+
+The CSV files can be opened in Excel, Google Sheets, or any other spreadsheet software for custom analysis and visualization.
+
 ## Configuration
 
 Create a `config.json` file to customize settings:
@@ -257,8 +291,9 @@ Create a `config.json` file to customize settings:
 ## Future Enhancements
 
 Potential features to add:
-- [ ] Export reports to PDF/CSV
+- [x] ~~Export reports to CSV~~ ✅ **Implemented!**
 - [x] ~~Integration with LinkedIn API for automatic data fetching~~ ✅ **Implemented!**
+- [ ] Export reports to PDF
 - [ ] Hashtag performance tracking
 - [ ] Audience growth correlation
 - [ ] Automated posting suggestions based on patterns

@@ -30,7 +30,7 @@ def demo_usage():
             'content': 'So proud of what we accomplished this quarter'
         },
         {
-            'title': 'Quick poll: What's your preferred tech stack?',
+            'title': 'Quick poll: What is your preferred tech stack?',
             'type': 'poll',
             'content': 'Curious to know what technologies you all use'
         },

@@ -7,6 +7,7 @@ Track and analyze LinkedIn post performance
 import json
 import os
 import argparse
+import csv
 from datetime import datetime
 from pathlib import Path
 from typing import Dict
@@ -261,6 +262,158 @@ class LinkedInTracker:
         headers = ['Rank', 'Title', 'Type', 'Likes', 'Comments', 'Shares', 'Score']
         print(tabulate(table_data, headers=headers, tablefmt='grid'))
 
+    def export_to_csv(self, output_file: str, report_type: str = 'posts', limit: int = None):
+        """Export data to CSV file
+
+        Args:
+            output_file: Path to output CSV file
+            report_type: Type of report ('posts', 'top', 'summary', 'times', 'types')
+            limit: Limit number of records (for top posts)
+        """
+        if not self.posts:
+            print("📭 No posts to export yet.")
+            return False
+
+        analyzer = EngagementAnalyzer(self.posts, self.config['engagement_weights'])
+        output_path = Path(output_file)
+
+        # Ensure output directory exists
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            if report_type == 'posts':
+                self._export_all_posts(output_path, analyzer)
+            elif report_type == 'top':
+                self._export_top_posts(output_path, analyzer, limit or 10)
+            elif report_type == 'summary':
+                self._export_summary(output_path, analyzer)
+            elif report_type == 'times':
+                self._export_best_times(output_path, analyzer)
+            elif report_type == 'types':
+                self._export_type_analysis(output_path, analyzer)
+            else:
+                print(f"❌ Unknown report type: {report_type}")
+                return False
+
+            print(f"✅ Report exported successfully to: {output_path}")
+            return True
+
+        except Exception as e:
+            print(f"❌ Error exporting to CSV: {e}")
+            return False
+
+    def _export_all_posts(self, output_path: Path, analyzer: EngagementAnalyzer):
+        """Export all posts to CSV"""
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Post ID', 'Title', 'Type', 'Content', 'URL', 'Created At',
+                           'Likes', 'Comments', 'Shares', 'Views', 'Engagement Score'])
+
+            for post_id, post in self.posts.items():
+                metrics = analyzer.get_latest_metrics(post)
+                score = analyzer.calculate_engagement_score(metrics)
+                writer.writerow([
+                    post_id,
+                    post['title'],
+                    post['type'],
+                    post['content'],
+                    post.get('url', ''),
+                    post['created_at'],
+                    metrics.get('likes', 0),
+                    metrics.get('comments', 0),
+                    metrics.get('shares', 0),
+                    metrics.get('views', 0),
+                    f"{score:.2f}"
+                ])
+
+    def _export_top_posts(self, output_path: Path, analyzer: EngagementAnalyzer, limit: int):
+        """Export top performing posts to CSV"""
+        top_posts = analyzer.get_top_posts(limit)
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Rank', 'Post ID', 'Title', 'Type', 'Created At',
+                           'Likes', 'Comments', 'Shares', 'Views', 'Engagement Score'])
+
+            for i, (post_id, post, score) in enumerate(top_posts, 1):
+                metrics = analyzer.get_latest_metrics(post)
+                writer.writerow([
+                    i,
+                    post_id,
+                    post['title'],
+                    post['type'],
+                    post['created_at'],
+                    metrics.get('likes', 0),
+                    metrics.get('comments', 0),
+                    metrics.get('shares', 0),
+                    metrics.get('views', 0),
+                    f"{score:.2f}"
+                ])
+
+    def _export_summary(self, output_path: Path, analyzer: EngagementAnalyzer):
+        """Export summary statistics to CSV"""
+        stats = analyzer.get_summary_stats()
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Metric', 'Value'])
+            writer.writerow(['Total Posts', stats['total_posts']])
+            writer.writerow(['Total Likes', stats['total_likes']])
+            writer.writerow(['Total Comments', stats['total_comments']])
+            writer.writerow(['Total Shares', stats['total_shares']])
+            writer.writerow(['Total Views', stats['total_views']])
+            writer.writerow(['Average Engagement Score', f"{stats['avg_score']:.2f}"])
+            writer.writerow(['Median Engagement Score', f"{stats['median_score']:.2f}"])
+            writer.writerow(['Max Engagement Score', f"{stats['max_score']:.2f}"])
+
+    def _export_best_times(self, output_path: Path, analyzer: EngagementAnalyzer):
+        """Export best posting times analysis to CSV"""
+        time_data = analyzer.analyze_posting_times()
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+
+            # Write best hours
+            writer.writerow(['Best Hours Analysis'])
+            writer.writerow(['Hour', 'Average Score', 'Number of Posts'])
+            hour_items = sorted(time_data['by_hour'].items(),
+                              key=lambda x: x[1]['avg_score'], reverse=True)
+            for hour, data in hour_items:
+                writer.writerow([f"{hour:02d}:00", f"{data['avg_score']:.2f}", data['count']])
+
+            writer.writerow([])  # Empty row separator
+
+            # Write best days
+            writer.writerow(['Best Days Analysis'])
+            writer.writerow(['Day', 'Average Score', 'Number of Posts'])
+            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            day_data = [(day, time_data['by_day'][day]) for day in day_order if day in time_data['by_day']]
+            day_data.sort(key=lambda x: x[1]['avg_score'], reverse=True)
+
+            for day, data in day_data:
+                writer.writerow([day, f"{data['avg_score']:.2f}", data['count']])
+
+    def _export_type_analysis(self, output_path: Path, analyzer: EngagementAnalyzer):
+        """Export content type analysis to CSV"""
+        type_data = analyzer.analyze_by_content_type()
+
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Content Type', 'Number of Posts', 'Avg Likes', 'Avg Comments',
+                           'Avg Shares', 'Avg Views', 'Avg Engagement Score'])
+
+            sorted_types = sorted(type_data.items(), key=lambda x: x[1]['avg_score'], reverse=True)
+            for content_type, data in sorted_types:
+                writer.writerow([
+                    content_type.capitalize(),
+                    data['count'],
+                    f"{data['avg_likes']:.1f}",
+                    f"{data['avg_comments']:.1f}",
+                    f"{data['avg_shares']:.1f}",
+                    f"{data['avg_views']:.1f}",
+                    f"{data['avg_score']:.2f}"
+                ])
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -284,6 +437,13 @@ Examples:
 
   # Show top posts
   python linkedin_tracker.py top --limit 5
+
+  # Export to CSV
+  python linkedin_tracker.py export --output reports/all_posts.csv --type posts
+  python linkedin_tracker.py export --output reports/top_10.csv --type top --limit 10
+  python linkedin_tracker.py export --output reports/summary.csv --type summary
+  python linkedin_tracker.py export --output reports/best_times.csv --type times
+  python linkedin_tracker.py export --output reports/content_types.csv --type types
         """
     )
 
@@ -321,6 +481,14 @@ Examples:
     top_parser = subparsers.add_parser('top', help='Show top performing posts')
     top_parser.add_argument('--limit', type=int, default=10, help='Number of top posts to show')
 
+    # Export command
+    export_parser = subparsers.add_parser('export', help='Export data to CSV')
+    export_parser.add_argument('--output', '-o', required=True, help='Output CSV file path')
+    export_parser.add_argument('--type', '-t', default='posts',
+                              choices=['posts', 'top', 'summary', 'times', 'types'],
+                              help='Type of report to export (default: posts)')
+    export_parser.add_argument('--limit', type=int, help='Limit for top posts export')
+
     args = parser.parse_args()
 
     if not args.command:
@@ -344,6 +512,9 @@ Examples:
 
     elif args.command == 'top':
         tracker.show_top_posts(args.limit)
+
+    elif args.command == 'export':
+        tracker.export_to_csv(args.output, args.type, args.limit)
 
 
 if __name__ == '__main__':
