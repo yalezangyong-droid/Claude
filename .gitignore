@@ -3,6 +3,9 @@ data/
 *.json
 !config.example.json
 
+# Generated reports
+reports/
+
 # Environment and credentials
 .env
 automation_config.json
