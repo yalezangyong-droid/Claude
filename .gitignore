@@ -3,6 +3,10 @@ data/
 *.json
 !config.example.json
 
+# Environment and credentials
+.env
+automation_config.json
+
 # Python
 __pycache__/
 *.py[cod]

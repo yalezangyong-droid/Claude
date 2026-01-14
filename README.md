@@ -2,6 +2,26 @@
 
 A powerful tool to track LinkedIn posts and analyze engagement patterns to optimize your content strategy.
 
+## ✨ Two Modes Available
+
+### 🤖 Automated Mode (NEW!)
+Automatically track your LinkedIn account using the LinkedIn API:
+- **Automatic data fetching** - No manual entry needed
+- **Scheduled syncing** - Updates every 6 hours (customizable)
+- **Background monitoring** - Run 24/7 as a service
+- **OAuth authentication** - Secure API access
+
+👉 **[Setup Automated Tracking →](AUTOMATION_SETUP.md)**
+
+### 📝 Manual Mode
+Manually track posts by entering data yourself:
+- Full control over what you track
+- No API setup required
+- Works offline
+- Perfect for testing or simple use cases
+
+👉 **[Manual Quick Start →](QUICKSTART.md)**
+
 ## Features
 
 - 📊 **Track Post Performance**: Monitor likes, comments, shares, and views for each post
@@ -10,6 +30,7 @@ A powerful tool to track LinkedIn posts and analyze engagement patterns to optim
 - 📈 **Trend Detection**: Track engagement trends over time
 - 📝 **Content Type Analysis**: Compare performance across different post types
 - 💾 **Local Data Storage**: All data stored securely in JSON format
+- 🤖 **Automated Tracking**: Set it and forget it with LinkedIn API integration
 
 ## Installation
 
@@ -19,26 +40,46 @@ pip install -r requirements.txt
 
 ## Quick Start
 
-### 1. Add a new post to track
+### Option A: Automated Tracking (Recommended)
 
-```bash
-python linkedin_tracker.py add \
-  --title "My awesome post about AI" \
-  --type "article" \
-  --content "Check out this amazing insight..."
-```
+1. **Authenticate with LinkedIn**
+   ```bash
+   python linkedin_auth_setup.py
+   ```
 
-### 2. Update engagement metrics
+2. **Start automatic monitoring**
+   ```bash
+   python linkedin_auto_tracker.py --monitor
+   ```
 
-```bash
-python linkedin_tracker.py update POST_ID \
-  --likes 150 \
-  --comments 25 \
-  --shares 10 \
-  --views 1200
-```
+3. **Analyze your data**
+   ```bash
+   python linkedin_tracker.py analyze --best-times
+   python linkedin_tracker.py top --limit 10
+   ```
 
-### 3. Analyze patterns
+📖 **[Full Automation Setup Guide →](AUTOMATION_SETUP.md)**
+
+### Option B: Manual Tracking
+
+1. **Add a new post to track**
+   ```bash
+   python linkedin_tracker.py add \
+     --title "My awesome post about AI" \
+     --type "article" \
+     --content "Check out this amazing insight..."
+   ```
+
+2. **Update engagement metrics**
+   ```bash
+   python linkedin_tracker.py update POST_ID \
+     --likes 150 \
+     --comments 25 \
+     --shares 10 \
+     --views 1200
+   ```
+
+3. **Analyze patterns**
 
 ```bash
 # Get overall engagement summary
@@ -54,10 +95,48 @@ python linkedin_tracker.py analyze --by-type
 python linkedin_tracker.py top --limit 5
 ```
 
-### 4. List all tracked posts
+4. **List all tracked posts**
+   ```bash
+   python linkedin_tracker.py list
+   ```
 
+📖 **[Detailed Manual Tracking Guide →](QUICKSTART.md)**
+
+## Automated Tracking Commands
+
+Once you've set up authentication (see [AUTOMATION_SETUP.md](AUTOMATION_SETUP.md)):
+
+### Run One-Time Sync
 ```bash
-python linkedin_tracker.py list
+python linkedin_auto_tracker.py --sync
+```
+Fetches all your LinkedIn posts and updates engagement metrics once.
+
+### Start Continuous Monitoring
+```bash
+# Check every 6 hours (default)
+python linkedin_auto_tracker.py --monitor
+
+# Custom interval (check every 12 hours)
+python linkedin_auto_tracker.py --monitor --interval 12
+```
+Runs continuously, updating metrics on schedule.
+
+### Check Status
+```bash
+python linkedin_auto_tracker.py --status
+```
+Shows when last sync ran and current configuration.
+
+### Run as Background Service
+```bash
+# Linux/Mac
+nohup python linkedin_auto_tracker.py --monitor > tracker.log 2>&1 &
+
+# Using screen
+screen -S linkedin-tracker
+python linkedin_auto_tracker.py --monitor
+# Press Ctrl+A then D to detach
 ```
 
 ## Post Types
@@ -179,11 +258,13 @@ Create a `config.json` file to customize settings:
 
 Potential features to add:
 - [ ] Export reports to PDF/CSV
-- [ ] Integration with LinkedIn API for automatic data fetching
+- [x] ~~Integration with LinkedIn API for automatic data fetching~~ ✅ **Implemented!**
 - [ ] Hashtag performance tracking
 - [ ] Audience growth correlation
 - [ ] Automated posting suggestions based on patterns
 - [ ] Web dashboard for visualization
+- [ ] Email/Slack notifications for engagement milestones
+- [ ] A/B testing recommendations
 
 ## License
 
