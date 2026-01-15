@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LinkedIn Post Scraper with Chrome Profile Persistence (v4 - Hashtag Fix)
+LinkedIn Post Scraper with Chrome Profile Persistence (v5 - Google Sheets)
 
 Features:
 - Persists login session using Chrome user profile
@@ -990,6 +990,12 @@ Examples:
 
   Force re-login:
     python linkedin_scraper.py --days 30 --relogin
+
+  Write to Google Sheets:
+    python linkedin_scraper.py --days 30 --sheets \\
+        --credentials /path/to/service-account.json \\
+        --sheet-id YOUR_SHEET_ID \\
+        --sheet-name "My Posts"
         """
     )
 
@@ -1033,6 +1039,34 @@ Examples:
         help='Enable debug mode (saves screenshots and HTML dumps)'
     )
 
+    # Google Sheets integration arguments
+    parser.add_argument(
+        '--sheets',
+        action='store_true',
+        help='Write results to Google Sheets'
+    )
+
+    parser.add_argument(
+        '--credentials',
+        type=str,
+        default=None,
+        help='Path to Google service account JSON file'
+    )
+
+    parser.add_argument(
+        '--sheet-id',
+        type=str,
+        default=None,
+        help='Google Sheet ID (from the URL)'
+    )
+
+    parser.add_argument(
+        '--sheet-name',
+        type=str,
+        default='Sheet1',
+        help='Worksheet name within the Google Sheet'
+    )
+
     args = parser.parse_args()
 
     # Set log level based on debug flag
@@ -1040,7 +1074,7 @@ Examples:
         logging.getLogger().setLevel(logging.DEBUG)
 
     logger.info("=" * 60)
-    logger.info("LinkedIn Post Scraper - Phase 1 (v4)")
+    logger.info("LinkedIn Post Scraper - Phase 2 (v5 - Google Sheets)")
     logger.info("=" * 60)
     logger.info(f"Days back: {args.days}")
     logger.info(f"Debug mode: {args.debug}")
@@ -1058,8 +1092,33 @@ Examples:
     try:
         posts = scraper.scrape_posts(force_relogin=args.relogin)
 
-        # Save results
+        # Save results to JSON
         scraper.save_to_json(args.output)
+
+        # Write to Google Sheets if enabled
+        sheets_count = 0
+        if args.sheets:
+            if not args.credentials or not args.sheet_id:
+                logger.error("Google Sheets requires --credentials and --sheet-id")
+                print("\nError: To use Google Sheets, provide:")
+                print("  --credentials /path/to/service-account.json")
+                print("  --sheet-id YOUR_SHEET_ID")
+            else:
+                try:
+                    from sheets_integration import write_to_sheets
+                    posts_dict = [post.to_dict() for post in posts]
+                    sheets_count = write_to_sheets(
+                        posts=posts_dict,
+                        credentials_path=args.credentials,
+                        spreadsheet_id=args.sheet_id,
+                        sheet_name=args.sheet_name,
+                        append=True
+                    )
+                    logger.info(f"Written {sheets_count} posts to Google Sheets")
+                except ImportError:
+                    logger.error("sheets_integration module not found")
+                except Exception as e:
+                    logger.error(f"Failed to write to Google Sheets: {e}")
 
         # Print summary
         print("\n" + "=" * 60)
@@ -1067,6 +1126,9 @@ Examples:
         print("=" * 60)
         print(f"Posts scraped: {len(posts)}")
         print(f"Output file: {args.output}")
+
+        if args.sheets and sheets_count > 0:
+            print(f"Google Sheets: {sheets_count} new posts written")
 
         if args.debug:
             print(f"Debug files: {scraper.debug_dir}/")
