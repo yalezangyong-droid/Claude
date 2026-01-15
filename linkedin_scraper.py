@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LinkedIn Post Scraper with Chrome Profile Persistence (v3 - Improved)
+LinkedIn Post Scraper with Chrome Profile Persistence (v4 - Hashtag Fix)
 
 Features:
 - Persists login session using Chrome user profile
@@ -580,6 +580,13 @@ class LinkedInScraper:
         content = re.sub(r'\bhashtag\s+#', '#', content, flags=re.IGNORECASE)
         content = re.sub(r'\bhashtag\b\s*', '', content, flags=re.IGNORECASE)
 
+        # Fix isolated hashtags on their own lines - join them with previous line
+        # Pattern: newline followed by hashtag should become space + hashtag
+        content = re.sub(r'\n\s*(#\w+)', r' \1', content)
+
+        # Fix multiple newlines into single newline
+        content = re.sub(r'\n\s*\n', '\n', content)
+
         # Remove reaction counts and other UI elements
         lines = content.split('\n')
         cleaned_lines = []
@@ -594,6 +601,7 @@ class LinkedInScraper:
             r'^Edited$',
             r'^\d+\s*reactions?$',
             r'^Open Emoji Keyboard',
+            r'^Celebrate$', r'^Support$', r'^Love$', r'^Insightful$', r'^Funny$',
         ]
 
         for line in lines:
@@ -610,7 +618,24 @@ class LinkedInScraper:
             if not skip:
                 cleaned_lines.append(line)
 
-        return '\n'.join(cleaned_lines)
+        # Join lines intelligently - if a line ends with punctuation, keep newline
+        # Otherwise, join with space
+        result_lines = []
+        for i, line in enumerate(cleaned_lines):
+            if i == 0:
+                result_lines.append(line)
+            else:
+                prev_line = result_lines[-1] if result_lines else ""
+                # If previous line ends with sentence-ending punctuation, start new line
+                if prev_line and prev_line[-1] in '.!?:。！？：':
+                    result_lines.append(line)
+                # If current line starts with hashtag and previous doesn't end with space
+                elif line.startswith('#'):
+                    result_lines[-1] = prev_line + ' ' + line
+                else:
+                    result_lines.append(line)
+
+        return '\n'.join(result_lines)
 
     def _extract_post_url(self, post_element) -> str:
         """Extract the permanent URL for a post."""
@@ -1015,7 +1040,7 @@ Examples:
         logging.getLogger().setLevel(logging.DEBUG)
 
     logger.info("=" * 60)
-    logger.info("LinkedIn Post Scraper - Phase 1 (v3)")
+    logger.info("LinkedIn Post Scraper - Phase 1 (v4)")
     logger.info("=" * 60)
     logger.info(f"Days back: {args.days}")
     logger.info(f"Debug mode: {args.debug}")
