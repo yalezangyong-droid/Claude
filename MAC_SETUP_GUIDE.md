@@ -32,23 +32,15 @@ python3 --version
 
 如果没有安装，从 https://www.google.com/chrome/ 下载安装
 
-### Step 4: 安装 ngrok
+### Step 4: 安装 Cloudflare Tunnel (cloudflared)
 
 ```bash
-brew install ngrok
+brew install cloudflared
 ```
 
-### Step 5: 配置 ngrok authtoken
+> ⚠️ **注意**: 我们使用 Cloudflare Tunnel 而不是 ngrok，因为它完全免费且无需注册账号。
 
-1. 访问 https://dashboard.ngrok.com/signup 注册账号
-2. 登录后，访问 https://dashboard.ngrok.com/get-started/your-authtoken
-3. 复制你的 authtoken
-4. 在终端运行：
-```bash
-ngrok config add-authtoken 你的authtoken
-```
-
-### Step 6: 创建项目文件夹
+### Step 5: 创建项目文件夹
 
 ```bash
 # 创建文件夹
@@ -56,7 +48,7 @@ mkdir -p ~/linkedin-scraper
 cd ~/linkedin-scraper
 ```
 
-### Step 7: 下载项目文件
+### Step 6: 下载项目文件
 
 ```bash
 # 下载所有文件
@@ -70,13 +62,13 @@ curl -O https://raw.githubusercontent.com/yalezangyong-droid/Claude/claude/linke
 chmod +x start_server.sh start_all.sh
 ```
 
-### Step 8: 安装 Python 依赖
+### Step 7: 安装 Python 依赖
 
 ```bash
 pip3 install selenium gspread google-auth flask
 ```
 
-### Step 9: 放置 Google 凭证文件
+### Step 8: 放置 Google 凭证文件
 
 将你的 `credentials.json` 文件复制到 `~/linkedin-scraper/` 文件夹中：
 ```bash
@@ -84,7 +76,7 @@ pip3 install selenium gspread google-auth flask
 cp ~/Downloads/credentials.json ~/linkedin-scraper/
 ```
 
-### Step 10: 首次登录 LinkedIn
+### Step 9: 首次登录 LinkedIn
 
 运行一次爬虫来登录 LinkedIn（会保存登录状态）：
 ```bash
@@ -109,10 +101,10 @@ cd ~/linkedin-scraper
 
 你会看到类似输出：
 ```
-Forwarding    https://xxxx-xx-xx.ngrok-free.app -> http://localhost:5000
+2024.01.15 10:30:00 INF |  https://random-words-here.trycloudflare.com
 ```
 
-**复制这个 https://xxxx-xx-xx.ngrok-free.app URL！**
+**复制这个 https://xxxxx.trycloudflare.com URL！**
 
 #### Step 2: 更新 Google Apps Script (如果 URL 变了)
 
@@ -120,7 +112,7 @@ Forwarding    https://xxxx-xx-xx.ngrok-free.app -> http://localhost:5000
 2. 菜单：`Extensions` → `Apps Script`
 3. 找到第 19 行：
 ```javascript
-const SCRAPER_URL = "https://你的新URL.ngrok-free.app";
+const SCRAPER_URL = "https://你的新URL.trycloudflare.com";
 ```
 4. 替换为刚才复制的 URL
 5. 按 `Cmd + S` 保存
@@ -141,11 +133,11 @@ const SCRAPER_URL = "https://你的新URL.ngrok-free.app";
 
 ### 问题：Server Offline / <!DOCTYPE error
 
-**原因**：ngrok URL 过期了
+**原因**：Cloudflare Tunnel URL 过期了（每次重启会变）
 
 **解决**：
 1. 重启 `./start_all.sh`
-2. 复制新的 ngrok URL
+2. 复制新的 trycloudflare.com URL
 3. 更新 Google Apps Script 中的 URL
 
 ### 问题：Chrome 没有打开 / Selenium 错误
@@ -180,15 +172,12 @@ python3 linkedin_scraper.py --days 7 --output test.json
 3. 添加 service account email（在 credentials.json 中的 client_email）
 4. 给予 `Editor`（编辑者）权限
 
-### 问题：ngrok 报错 authtoken
+### 问题：cloudflared 报错
 
 **解决**：
 ```bash
-# 删除旧配置
-rm ~/.config/ngrok/ngrok.yml
-
-# 重新配置
-ngrok config add-authtoken 你的正确token
+# 重新安装
+brew reinstall cloudflared
 ```
 
 ---
@@ -209,7 +198,7 @@ ngrok config add-authtoken 你的正确token
 
 ## 💡 小贴士
 
-1. **ngrok 固定 URL**：升级 ngrok 付费版可以获得固定 URL，不用每次更新
+1. **Cloudflare Tunnel 优势**：完全免费，无需注册账号，无使用限制
 2. **后台运行**：可以用 `nohup ./start_all.sh &` 让服务在后台运行
 3. **定时任务**：可以用 Mac 的 `cron` 或 `launchd` 设置定时自动运行
 
