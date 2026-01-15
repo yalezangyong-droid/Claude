@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-LinkedIn Post Scraper with Chrome Profile Persistence (v2 - Fixed)
+LinkedIn Post Scraper with Chrome Profile Persistence (v3 - Improved)
 
 Features:
 - Persists login session using Chrome user profile
@@ -574,6 +574,12 @@ class LinkedInScraper:
         if not content:
             return ""
 
+        # Fix hashtag formatting: LinkedIn adds "hashtag\n#tag" for accessibility
+        # Convert "hashtag\n#something" to just "#something"
+        content = re.sub(r'hashtag\s*\n\s*#', '#', content, flags=re.IGNORECASE)
+        content = re.sub(r'\bhashtag\s+#', '#', content, flags=re.IGNORECASE)
+        content = re.sub(r'\bhashtag\b\s*', '', content, flags=re.IGNORECASE)
+
         # Remove reaction counts and other UI elements
         lines = content.split('\n')
         cleaned_lines = []
@@ -585,6 +591,9 @@ class LinkedInScraper:
             r'^Load more',
             r'^Show fewer',
             r'^Report this',
+            r'^Edited$',
+            r'^\d+\s*reactions?$',
+            r'^Open Emoji Keyboard',
         ]
 
         for line in lines:
@@ -605,11 +614,18 @@ class LinkedInScraper:
 
     def _extract_post_url(self, post_element) -> str:
         """Extract the permanent URL for a post."""
-        # Multiple selectors for post links
+        # Priority 1: Try to get from data-urn attribute (most reliable)
+        try:
+            urn = post_element.get_attribute('data-urn')
+            if urn:
+                return f"https://www.linkedin.com/feed/update/{urn}"
+        except Exception:
+            pass
+
+        # Priority 2: Look for direct post links (avoid analytics URLs)
         link_selectors = [
-            'a[href*="/feed/update/"]',
+            'a[href*="/feed/update/urn"]',
             'a[href*="/posts/"]',
-            'a[href*="activity"]',
         ]
 
         for selector in link_selectors:
@@ -617,16 +633,22 @@ class LinkedInScraper:
                 links = post_element.find_elements(By.CSS_SELECTOR, selector)
                 for link in links:
                     href = link.get_attribute('href')
-                    if href and ('activity' in href or 'update' in href or 'posts' in href):
-                        return href.split('?')[0]
+                    # Skip analytics URLs
+                    if href and '/analytics/' not in href:
+                        if '/feed/update/' in href or '/posts/' in href:
+                            return href.split('?')[0]
             except Exception:
                 continue
 
-        # Try to get from data-urn attribute
+        # Priority 3: Extract activity URN from any link
         try:
-            urn = post_element.get_attribute('data-urn')
-            if urn:
-                return f"https://www.linkedin.com/feed/update/{urn}"
+            all_links = post_element.find_elements(By.CSS_SELECTOR, 'a[href*="activity"]')
+            for link in all_links:
+                href = link.get_attribute('href') or ""
+                # Extract the activity URN from analytics or other URLs
+                match = re.search(r'urn:li:activity:(\d+)', href)
+                if match:
+                    return f"https://www.linkedin.com/feed/update/urn:li:activity:{match.group(1)}"
         except Exception:
             pass
 
@@ -643,36 +665,68 @@ class LinkedInScraper:
         impressions = 0
 
         try:
-            # Get all text and parse numbers
-            full_text = post_element.text.lower()
+            # Method 1: Try specific selectors for reaction count
+            reactions_selectors = [
+                'span.social-details-social-counts__reactions-count',
+                'button[aria-label*="reaction"] span',
+                'span.reactions-count',
+                '.social-details-social-counts button span.t-bold',
+            ]
+            for selector in reactions_selectors:
+                try:
+                    elem = post_element.find_element(By.CSS_SELECTOR, selector)
+                    if elem and elem.text.strip():
+                        likes = self._parse_count(elem.text)
+                        if likes > 0:
+                            break
+                except NoSuchElementException:
+                    continue
 
-            # Extract reactions (likes)
-            reactions_match = re.search(r'(\d+(?:,\d+)?(?:\.\d+)?[km]?)\s*(?:reaction|like)', full_text)
-            if reactions_match:
-                likes = self._parse_count(reactions_match.group(1))
-
-            # Try selector for reactions
+            # Method 2: Look for buttons with aria-labels containing counts
             try:
-                reactions_elem = post_element.find_element(
-                    By.CSS_SELECTOR,
-                    'span.social-details-social-counts__reactions-count'
-                )
-                if reactions_elem:
-                    likes = self._parse_count(reactions_elem.text)
-            except NoSuchElementException:
+                buttons = post_element.find_elements(By.CSS_SELECTOR, 'button[aria-label]')
+                for btn in buttons:
+                    aria_label = (btn.get_attribute('aria-label') or '').lower()
+
+                    # Reactions/Likes
+                    if 'reaction' in aria_label or 'like' in aria_label:
+                        match = re.search(r'(\d+(?:,\d+)?(?:\.\d+)?[km]?)', aria_label)
+                        if match and likes == 0:
+                            likes = self._parse_count(match.group(1))
+
+                    # Comments
+                    if 'comment' in aria_label:
+                        match = re.search(r'(\d+(?:,\d+)?)', aria_label)
+                        if match and comments == 0:
+                            comments = self._parse_count(match.group(1))
+
+                    # Reposts
+                    if 'repost' in aria_label:
+                        match = re.search(r'(\d+(?:,\d+)?)', aria_label)
+                        if match and reposts == 0:
+                            reposts = self._parse_count(match.group(1))
+            except Exception:
                 pass
 
-            # Extract comments
-            comments_match = re.search(r'(\d+(?:,\d+)?)\s*comment', full_text)
-            if comments_match:
-                comments = self._parse_count(comments_match.group(1))
+            # Method 3: Parse from full text as fallback
+            full_text = post_element.text.lower()
 
-            # Extract reposts
-            reposts_match = re.search(r'(\d+(?:,\d+)?)\s*repost', full_text)
-            if reposts_match:
-                reposts = self._parse_count(reposts_match.group(1))
+            if likes == 0:
+                reactions_match = re.search(r'(\d+(?:,\d+)?(?:\.\d+)?[km]?)\s*(?:reaction|like)', full_text)
+                if reactions_match:
+                    likes = self._parse_count(reactions_match.group(1))
 
-            # Extract impressions/views (usually only visible to post owner)
+            if comments == 0:
+                comments_match = re.search(r'(\d+(?:,\d+)?)\s*comment', full_text)
+                if comments_match:
+                    comments = self._parse_count(comments_match.group(1))
+
+            if reposts == 0:
+                reposts_match = re.search(r'(\d+(?:,\d+)?)\s*repost', full_text)
+                if reposts_match:
+                    reposts = self._parse_count(reposts_match.group(1))
+
+            # Impressions (usually only visible to post owner on activity page)
             impressions_match = re.search(r'(\d+(?:,\d+)?(?:\.\d+)?[km]?)\s*(?:impression|view)', full_text)
             if impressions_match:
                 impressions = self._parse_count(impressions_match.group(1))
@@ -961,7 +1015,7 @@ Examples:
         logging.getLogger().setLevel(logging.DEBUG)
 
     logger.info("=" * 60)
-    logger.info("LinkedIn Post Scraper - Phase 1 (v2)")
+    logger.info("LinkedIn Post Scraper - Phase 1 (v3)")
     logger.info("=" * 60)
     logger.info(f"Days back: {args.days}")
     logger.info(f"Debug mode: {args.debug}")
